@@ -1,0 +1,8 @@
+rules:
+  - id: python-exec-eval-usage
+    patterns:
+      - pattern: exec($CODE)
+      - pattern: eval($CODE)
+    message: "Avoid use of exec/eval; can lead to RCE."
+    languages: [python]
+    severity: ERROR

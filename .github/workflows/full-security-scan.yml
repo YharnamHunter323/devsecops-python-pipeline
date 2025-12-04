@@ -1,0 +1,101 @@
+name: Full Security Scan
+
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *' # nightly at 02:00 UTC
+
+
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: python
+
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: 'full-scan'
+
+
+  trivy_scan:
+    runs-on: ubuntu-latest
+    needs: codeql
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: |
+          docker build -t demo-app:latest .
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@v1
+        with:
+          image-ref: demo-app:latest
+          format: 'json'
+          output: 'trivy-report.json'
+      - name: Upload Trivy report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.json
+
+
+  dast:
+    runs-on: ubuntu-latest
+    needs: [codeql, trivy_scan]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Start test environment
+        run: |
+          docker-compose up -d
+          # wait for app to be ready
+          timeout=60
+          until curl -sS http://localhost:8080/ >/dev/null || [ $timeout -le 0 ]; do
+            sleep 1; timeout=$((timeout-1));
+          done
+      - name: Run OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.6.0
+        with:
+          target: 'http://localhost:8080'
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: zap_report.html || zap_report.json
+
+
+  aggregate:
+    runs-on: ubuntu-latest
+    needs: [codeql, trivy_scan, dast]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: trivy-report
+      - name: Generate aggregated markdown report
+        run: |
+          python3 .github/scripts/report-aggregate.py \
+            --trivy trivy-report.json \
+            --zapprobe zap_report.json \
+            --output reports/security-summary.md || true
+      - name: Upload final report
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-security-report
+          path: reports/security-summary.md
