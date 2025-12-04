@@ -1,9 +1,14 @@
+# .pre-commit-config.yaml (Windows-friendly, local hooks)
 repos:
-  - repo: https://github.com/pre-commit/mirrors-semgrep
-    rev: v1.27.0
+  - repo: local
     hooks:
-      - id: semgrep
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.3.0
-    hooks:
-      - id: detect-secrets-hook
+      - id: detect-secrets-local
+        name: detect-secrets (local)
+        entry: .venv/Scripts/detect-secrets.exe
+        language: system
+        # Make sure pre-commit does NOT append filenames (detect-secrets expects subcommand)
+        pass_filenames: false
+        # Arguments given to the executable
+        args: [ "scan", "--baseline", ".detect-secrets.baseline" ]
+        # Only run on typical source/text files
+        files: \.(py|txt|env|cfg)$
