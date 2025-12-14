@@ -70,7 +70,7 @@ jobs:
 
       - name: Start application stack
         run: |
-          docker-compose up -d
+          docker compose up -d
           timeout=60
           until curl -s http://localhost:8080 >/dev/null || [ $timeout -le 0 ]; do
             sleep 1
