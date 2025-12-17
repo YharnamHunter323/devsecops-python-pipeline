@@ -84,7 +84,7 @@ jobs:
             -v "${{ github.workspace }}:/zap/wrk:rw" \
             zaproxy/zap2docker-stable \
             zap-baseline.py \
-            -t http://project-web:8080 \
+            -t http://web:8080 \
             -r zap_report.html || true
 
   
