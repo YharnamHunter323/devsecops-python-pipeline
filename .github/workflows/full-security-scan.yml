@@ -59,7 +59,7 @@ jobs:
           name: trivy-report
           path: trivy-report.json
 
-
+  
   dast:
     name: OWASP ZAP DAST
     runs-on: ubuntu-latest
@@ -67,7 +67,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+  
       - name: Start application stack
         run: |
           docker compose up -d
@@ -76,24 +76,24 @@ jobs:
             sleep 1
             timeout=$((timeout-1))
           done
-          
+  
       - name: Run OWASP ZAP baseline scan
         run: |
           docker run --rm \
-            -v ${{ github.workspace }}:/zap/wrk:rw \
+            -v "${{ github.workspace }}:/zap/wrk:rw" \
             zaproxy/zap2docker-stable \
             zap-baseline.py \
             -t http://localhost:8080 \
             -r zap_report.html || true
-
-
+  
+      - name: Verify ZAP report exists
+        run: ls -l zap_report.html
+  
       - name: Upload ZAP report
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
-          path: |
-            zap_report.html
-            zap_report.json
+          path: zap_report.html
 
 
   aggregate:
