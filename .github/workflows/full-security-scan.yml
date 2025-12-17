@@ -82,10 +82,11 @@ jobs:
           docker run --rm \
             --network project_default \
             -v "${{ github.workspace }}:/zap/wrk:rw" \
-            zaproxy/zap2docker-stable \
+            ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://web:8080 \
             -r zap_report.html || true
+
 
   
       - name: Verify ZAP report exists
