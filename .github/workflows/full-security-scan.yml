@@ -79,12 +79,14 @@ jobs:
       - name: Run OWASP ZAP baseline (Docker)
         run: |
           docker run --rm \
-            --network host \
+            --network project_default \
             -v "$(pwd):/zap/wrk:rw" \
+            -w /zap/wrk \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
-            -t http://localhost:8080 \
+            -t http://project-web:8080 \
             -r zap_report.html || true
+
 
       - name: Verify ZAP report exists
         run: ls -l zap_report.html
