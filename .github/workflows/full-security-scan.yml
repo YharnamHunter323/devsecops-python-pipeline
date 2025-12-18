@@ -85,6 +85,8 @@ jobs:
       - name: Run OWASP ZAP baseline scan
         run: |
           docker run --rm \
+            --user root \
+            --add-host=host.docker.internal:host-gateway \
             -v "$(pwd):/zap/wrk:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
@@ -107,8 +109,6 @@ jobs:
       - name: Tear down application stack
         if: always()
         run: docker compose down
-
-
 
   aggregate:
     name: Aggregate Security Reports
