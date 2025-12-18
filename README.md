@@ -1,185 +1,190 @@
-# DevSecOps Pipeline with Automated Code Scanning (Python)
+# DevSecOps Pipeline with Automated Security Scanning
 
-## 1. Project Overview
+## Overview
 
-This project implements a **DevSecOps pipeline** for a simple Python web application, focusing on integrating security checks throughout the software development lifecycle. The goal is to demonstrate how security can be automated and embedded into development workflows using industry-standard tools.
+This project implements a **local and CI-based DevSecOps pipeline** for a Python application. The goal is to demonstrate how security can be integrated throughout the software delivery lifecycle using industry-standard tools for **SAST, secrets detection, container scanning, and DAST**.
 
-The pipeline covers:
-- **Commit-time security** (secrets detection)
-- **Build-time security** (static analysis and dependency/container scanning)
-- **Runtime security** (dynamic application security testing)
-- **Automated reporting and aggregation** of results
+The pipeline runs:
 
-The project is intentionally small in scope (a minimal Python application) to keep the focus on the **security tooling, automation, and trade-offs**, rather than application complexity.
+* **Locally** via a single PowerShell script (`run_all_local.ps1`)
+* **In CI** using GitHub Actions (`.github/workflows/full-security-scan.yml`)
+
+This project was developed for an academic DevSecOps assignment and emphasizes clarity, reproducibility, and realistic tooling.
 
 ---
 
-## 2. Architecture and Tooling
+## Architecture & Tools
 
 ### Application
-- **Language:** Python
-- **Framework:** Minimal Flask-based web service
-- **Containerized:** Docker + Docker Compose
 
-### Security Toolchain
+* **Language:** Python
+* **Runtime:** Docker + Docker Compose
+* **App entry point:** `app.py`
 
-| Phase | Tool | Purpose |
-|-----|-----|-----|
-| Pre-commit | detect-secrets | Prevent committing secrets to the repository |
-| SAST | Semgrep | Static code analysis for insecure patterns |
-| Image / Dependency Scan | Trivy | Scan container images for known vulnerabilities |
-| DAST / Runtime | OWASP ZAP | Scan the running application for runtime security issues |
-| Reporting | Custom aggregation scripts | Summarize results into readable artifacts |
+### Security Tooling
 
----
-
-## 3. Security Use Cases
-
-This project explicitly addresses multiple security use cases, as required for a DevSecOps pipeline.
-
-### 3.1 Commit-Time Security: Secrets Scanning
-
-- **Tool:** detect-secrets
-- **Mechanism:**
-  - A baseline file (`.detect-secrets.baseline`) is generated and tracked.
-  - New scans are compared against this baseline to detect newly introduced secrets.
-  - Integrated via **pre-commit hooks**, preventing accidental leakage before code reaches CI.
-
-**Rationale:**
-Secrets are easiest and cheapest to fix before code is committed. Baseline comparison reduces noise from historical findings.
+| Category  | Tool           | Purpose                                       |
+| --------- | -------------- | --------------------------------------------- |
+| SAST      | CodeQL         | Static code analysis (GitHub-native)          |
+| SAST      | Semgrep        | Custom Python security rules                  |
+| Secrets   | detect-secrets | Detect hardcoded secrets in Git history       |
+| Container | Trivy          | Scan Docker images for vulnerabilities        |
+| DAST      | OWASP ZAP      | Baseline dynamic application security testing |
 
 ---
 
-### 3.2 Build-Time Security: Static Analysis (SAST)
+## Repository Structure
 
-- **Tool:** Semgrep
-- **Scope:** Python source code
-- **Output:** SARIF (`semgrep-report.sarif`)
-
-Semgrep scans the codebase for insecure coding patterns (e.g., use of `eval` or `exec`). The rules are customizable and fast to run, making them suitable for CI pipelines.
-
-**Trade-off:**
-- Fast feedback
-- Limited to patterns detectable statically
-
----
-
-### 3.3 Build-Time Security: Container Image Scanning
-
-- **Tool:** Trivy
-- **Scope:** Built Docker image
-- **Output:** JSON (`trivy-report.json`)
-
-Trivy scans the application container for known vulnerabilities in:
-- OS packages
-- Python dependencies
-
-The scan reports known CVEs based on public vulnerability databases.
-
-**Important Note:**
-A relatively high number of findings is expected for base images and dependencies. In real projects, findings are triaged by severity and exploitability.
-
----
-
-### 3.4 Runtime Security: Dynamic Application Security Testing (DAST)
-
-- **Tool:** OWASP ZAP (baseline scan)
-- **Target:** Running application via Docker Compose
-- **Output:** HTML report (`reports/zap-report.html`)
-
-ZAP performs a dynamic scan against the live application, identifying runtime misconfigurations and common web vulnerabilities.
-
-**Observed Results:**
-- No high-risk findings
-- Several warnings (e.g., missing headers, Spectre-related isolation warnings)
-
-These findings are expected for a minimal demo application and demonstrate realistic runtime security feedback.
-
----
-
-## 4. Automation and Orchestration
-
-### Local Execution
-
-All security steps can be executed locally using a single script:
-
-```powershell
-.\run_all_local.ps1
+```
+.
+├── app.py
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── run_all_local.ps1
+├── run_detect_secrets_tracked_filtered.py
+├── clean_detect_secrets.py
+├── compare_and_summarize.py
+├── .detect-secrets.baseline
+├── .semgrep/
+│   └── rules/
+├── .github/
+│   ├── workflows/
+│   │   └── full-security-scan.yml
+│   └── scripts/
+│       └── report-aggregate.py
+├── reports/              # Generated locally / in CI
+├── README.md
 ```
 
-This script:
-1. Builds and starts the application with Docker Compose
-2. Runs Semgrep (SAST)
-3. Runs detect-secrets (baseline comparison)
-4. Runs Trivy (container scan)
-5. Runs OWASP ZAP (runtime scan)
-6. Aggregates results into the `reports/` directory
-7. Tears down the running containers
+Generated artifacts (reports, scan outputs) are **excluded from Git** and only uploaded as CI artifacts.
 
 ---
 
-### CI/CD Integration
-
-- **Platform:** GitHub Actions
-- **Workflows:**
-  - Static analysis and secret scanning on push / pull request
-  - Container image scanning
-  - Automated artifact generation
-
-The same tools used locally are executed in CI on Linux runners, ensuring consistency between developer machines and CI environments.
-
----
-
-## 5. Reporting and Artifacts
-
-Generated artifacts include:
-
-- `semgrep-report.sarif` – Static analysis findings
-- `trivy-report.json` – Container vulnerability scan
-- `reports/zap-report.html` – Runtime security scan
-- `reports/security-summary.md` – Human-readable summary
-- `reports/summary.json` – Aggregated metrics
-
-This separation allows both **technical analysis** and **high-level reporting**.
-
----
-
-## 6. Build-Time vs Runtime Security Considerations
-
-This project demonstrates key DevSecOps trade-offs:
-
-- **Early scans (SAST, secrets)** are fast and prevent issues early
-- **Image scanning** provides broad coverage but may produce noise
-- **Runtime scans** detect real deployment issues but increase pipeline execution time
-
-A balanced pipeline combines all of these, rather than relying on a single security stage.
-
----
-
-## 7. How to Run the Project
+## Local Pipeline Execution
 
 ### Prerequisites
-- Python 3.x
-- Docker Desktop
-- PowerShell (Windows)
 
-### Run Everything Locally
+* Docker Desktop (running)
+* Python 3.10+
+* PowerShell (Windows)
+
+Optional but recommended:
+
+* Python virtual environment (`.venv`)
+
+### One-Time Setup
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pre-commit install
+```
+
+### Run the Full Local Pipeline
 
 ```powershell
 .\run_all_local.ps1
 ```
 
-### Run Application Only
+This will:
 
-```powershell
-docker-compose up --build
-```
+1. Build the Docker image
+2. Start the application via Docker Compose
+3. Run Semgrep (SAST)
+4. Run detect-secrets and compare against baseline
+5. Run Trivy image scan
+6. Run OWASP ZAP baseline scan
+7. Aggregate results into a security summary
+8. Tear down the environment
+
+Artifacts are written locally for inspection.
 
 ---
 
-## 8. Conclusion
+## GitHub Actions CI Pipeline
 
-This project demonstrates a complete, practical DevSecOps pipeline for a Python application. By integrating security at multiple stages—commit-time, build-time, and runtime—it shows how security can be treated as a continuous process rather than a final gate.
+### Workflow Trigger
 
-The design mirrors real-world DevSecOps practices while remaining simple enough for academic evaluation and demonstration.
+The workflow runs on:
 
+* Pushes to `main`
+* A nightly scheduled run (02:00 UTC)
+
+### CI Jobs
+
+1. **CodeQL Analysis**
+
+   * GitHub-native SAST
+   * Results appear in the *Security → Code scanning* tab
+
+2. **Trivy Image Scan**
+
+   * Builds the Docker image
+   * Scans for OS and dependency vulnerabilities
+   * Uploads JSON artifact
+
+3. **OWASP ZAP DAST**
+
+   * Starts the application container
+   * Runs ZAP baseline scan against the live app
+   * Generates `zap_report.html`
+
+4. **Aggregation**
+
+   * Combines Trivy + ZAP results
+   * Produces `reports/security-summary.md`
+
+All reports are uploaded as GitHub Actions artifacts.
+
+---
+
+## OWASP ZAP Notes
+
+The ZAP baseline scan may produce warnings such as:
+
+```
+WARN-NEW: Insufficient Site Isolation Against Spectre
+```
+
+These are **informational security warnings**, not exploitable application bugs. For this reason:
+
+* ZAP findings **do not fail the pipeline**
+* Reports are reviewed manually
+
+This reflects real-world CI/CD security practices.
+
+---
+
+## Secrets Management
+
+* `detect-secrets` is enforced via **pre-commit hooks**
+* `.detect-secrets.baseline` is the approved baseline
+* New secrets introduced after baseline creation will block commits
+
+Generated scan files are excluded via `.gitignore`.
+
+---
+
+## Educational Outcomes
+
+This project demonstrates:
+
+* Shift-left security practices
+* Tool chaining in DevSecOps pipelines
+* Differences between local and CI execution
+* Handling security findings without blocking delivery
+
+---
+
+## Future Improvements
+
+Possible extensions:
+
+* Runtime security (Falco / eBPF)
+* Dependency update automation (Dependabot)
+* Policy-as-code enforcement
+* CVSS-based gating
+
+---
